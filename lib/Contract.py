@@ -1,5 +1,5 @@
 from web3.contract import ConciseContract
-from solc import compile_files
+from solcx import compile_files
 from Abstract_Contract import *
 
 class Contract(Abstract_Contract):
