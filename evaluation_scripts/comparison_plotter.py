@@ -98,7 +98,7 @@ def plot(filepath,label,colour_,limit, trendline):
                      color =colour_,
                      alpha=0.2 )
     plt.locator_params(nbins=14)
-    plt.xlabel('Number of Nodes')
+    plt.xlabel('Number of Users')
     plt.ylabel('Average delay[sec]')
     print(type(limit))
     plt.xlim(0,limit)
