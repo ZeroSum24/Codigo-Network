@@ -47,40 +47,36 @@ def parse_file(filepath):
                 delay_min.append(res[4])
                 results.append(res[5])
             line = fp.readline()
-    print(user_no)
     return user_no, delay_avg, delay_std, delay_max, delay_min, results
 
 def combine_iterations(filepath):
+    results_mat = defaultdict(list)
     results_agg = defaultdict(list)
 
-    # aggregate the results
-    for idx, file_path in enumerate(listdir(filepath)):
-        user_no, delay_avg, delay_std, delay_max, delay_min,_ = parse_file(join(filepath, file_path))
-        if len(results_agg) == 0:
-            list_size = len(user_no)
-            results_agg["user_no"]   = [0]*list_size
-            results_agg["delay_avg"] = [0]*list_size
-            results_agg["delay_std"] = [0]*list_size
-            results_agg["delay_max"] = [0]*list_size
-            results_agg["delay_min"] = [0]*list_size
+    # parse the arrays building a 3D matrix
+    for file_path in listdir(filepath):
+        user_no, delay_avg, _ , delay_max, delay_min,_ = parse_file(join(filepath, file_path))
+        results_mat["user_no"].append(user_no)
+        results_mat["delay_avg"].append(delay_avg)
+        results_mat["delay_max"].append(delay_max)
+        results_mat["delay_min"].append(delay_min)
 
-        results_agg["user_no"]   =[sum(x) for x in zip(results_agg["user_no"],   user_no)]
-        results_agg["delay_avg"] =[sum(x) for x in zip(results_agg["delay_avg"], delay_avg)]
-        results_agg["delay_std"] =[sum(x) for x in zip(results_agg["delay_std"], delay_std)]
-        results_agg["delay_max"] =[sum(x) for x in zip(results_agg["delay_max"], delay_max)]
-        results_agg["delay_min"] =[sum(x) for x in zip(results_agg["delay_min"], delay_min)]
+    # transpose the arrays
+    results_agg["user_no"]   = list(map(lambda x : np.array(x), zip(*results_mat["user_no"])))
+    results_agg["delay_avg"] = list(map(lambda x : np.array(x), zip(*results_mat["delay_avg"])))
+    results_agg["delay_max"] = list(map(lambda x : np.array(x), zip(*results_mat["delay_max"])))
+    results_agg["delay_min"] = list(map(lambda x : np.array(x), zip(*results_mat["delay_min"])))
+    results_agg["delay_std"] = [0]*len(results_agg["delay_avg"])
 
-    num_iterations = len(listdir(filepath))
-
-    # average the results
+    # calculate averages and delay_std of mean
     for idx in range(len(results_agg["user_no"])):
-        results_agg["user_no"][idx]   =(results_agg["user_no"][idx]   / num_iterations)
-        results_agg["delay_avg"][idx] =(results_agg["delay_avg"][idx] / num_iterations)
-        results_agg["delay_std"][idx] =(results_agg["delay_std"][idx] / num_iterations)
-        results_agg["delay_max"][idx] =(results_agg["delay_max"][idx] / num_iterations)
-        results_agg["delay_min"][idx] =(results_agg["delay_min"][idx] / num_iterations)
+        results_agg["user_no"][idx]   = np.mean(results_agg["user_no"][idx])
+        results_agg["delay_std"][idx] = np.std(results_agg["delay_avg"][idx])
+        results_agg["delay_avg"][idx] = np.mean(results_agg["delay_avg"][idx])
+        results_agg["delay_max"][idx] = np.mean(results_agg["delay_max"][idx])
+        results_agg["delay_min"][idx] = np.mean(results_agg["delay_min"][idx])
 
-    return results_agg["user_no"], results_agg["delay_avg"], results_agg["delay_std"], results_agg["delay_max"], results_agg["delay_min"]
+    return list(results_agg["user_no"]), list(results_agg["delay_avg"]), list(results_agg["delay_std"]), list(results_agg["delay_max"]), list(results_agg["delay_min"])
 
 
 def plot(filepath,label,colour_,limit, trendline):
@@ -89,7 +85,7 @@ def plot(filepath,label,colour_,limit, trendline):
         y_trendline = linear_reg(user_no,delay_avg)
         plt.plot(user_no, y_trendline,'-', color=colour_, alpha=0.2, label= label + " Trendline")
 
-    plt.plot(user_no[:limit], delay_avg[:limit], 'o--', color=colour_, label=label + " Average delay",ms=3) #, yerr = delay_std, fmt='o' )
+    plt.errorbar(x=user_no[:limit], y=delay_avg[:limit], yerr=delay_std[:limit], fmt='o--', color=colour_, label=label + " Average delay",ms=3, ecolor='black')
     plt.plot(user_no[:limit], delay_max[:limit], '--',  color=colour_, label=label + " Max delay",alpha=0.3)
     plt.plot(user_no[:limit], delay_min[:limit], '--',  color=colour_, label=label + " Min delay",alpha=0.3)
     plt.fill_between(user_no[:limit],
@@ -100,11 +96,11 @@ def plot(filepath,label,colour_,limit, trendline):
     plt.locator_params(nbins=14)
     plt.xlabel('Number of Users')
     plt.ylabel('Average delay[sec]')
-    print(type(limit))
     plt.xlim(0,limit)
 
 
 def statistics(filepath):
+    # TODO update for multiple files
     results = parse_file(filepath)
     for results_row in results[5]:
         print(stats.describe(results_row))
