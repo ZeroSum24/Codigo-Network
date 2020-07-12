@@ -4,6 +4,9 @@ import matplotlib.pyplot as plt
 from scipy import stats
 import numpy as np
 import argparse
+from os import listdir
+from os.path import join
+from collections import defaultdict
 
 save_dir = './evaluation_scripts/Plots/'
 
@@ -21,7 +24,7 @@ def parse_single_line(line, filepath, prv_users):
     if users > 110:
         return
 
-    return d['Users'], d['Avg_Time'],d['Std_Time'], np.max(d['Results']),np.min(d['Results']),d['Results']
+    return d['Users'], d['Avg_time'],d['Std_Time'], np.max(d['Results']),np.min(d['Results']),d['Results']
 
 def parse_file(filepath):
     user_no = []
@@ -31,7 +34,7 @@ def parse_file(filepath):
     delay_min = []
     results = []
     prv_users = None
-    with open(filepath) as fp:  
+    with open(filepath) as fp:
         line = fp.readline()
         while line:
             res = parse_single_line(line,filepath,prv_users)
@@ -44,38 +47,67 @@ def parse_file(filepath):
                 delay_min.append(res[4])
                 results.append(res[5])
             line = fp.readline()
-    print(user_no)
     return user_no, delay_avg, delay_std, delay_max, delay_min, results
 
+def combine_iterations(filepath):
+    results_mat = defaultdict(list)
+    results_agg = defaultdict(list)
+
+    # parse the arrays building a 3D matrix
+    for file_path in listdir(filepath):
+        user_no, delay_avg, _ , delay_max, delay_min,_ = parse_file(join(filepath, file_path))
+        results_mat["user_no"].append(user_no)
+        results_mat["delay_avg"].append(delay_avg)
+        results_mat["delay_max"].append(delay_max)
+        results_mat["delay_min"].append(delay_min)
+
+    # transpose the arrays
+    results_agg["user_no"]   = list(map(lambda x : np.array(x), zip(*results_mat["user_no"])))
+    results_agg["delay_avg"] = list(map(lambda x : np.array(x), zip(*results_mat["delay_avg"])))
+    results_agg["delay_max"] = list(map(lambda x : np.array(x), zip(*results_mat["delay_max"])))
+    results_agg["delay_min"] = list(map(lambda x : np.array(x), zip(*results_mat["delay_min"])))
+    results_agg["delay_std"] = [0]*len(results_agg["delay_avg"])
+
+    # calculate averages and delay_std of mean
+    for idx in range(len(results_agg["user_no"])):
+        results_agg["user_no"][idx]   = np.mean(results_agg["user_no"][idx])
+        results_agg["delay_std"][idx] = np.std(results_agg["delay_avg"][idx])
+        results_agg["delay_avg"][idx] = np.mean(results_agg["delay_avg"][idx])
+        results_agg["delay_max"][idx] = np.mean(results_agg["delay_max"][idx])
+        results_agg["delay_min"][idx] = np.mean(results_agg["delay_min"][idx])
+
+    return list(results_agg["user_no"]), list(results_agg["delay_avg"]), list(results_agg["delay_std"]), list(results_agg["delay_max"]), list(results_agg["delay_min"])
+
+
 def plot(filepath,label,colour_,limit, trendline):
-    user_no, delay_avg, delay_std, delay_max, delay_min,_ = parse_file(filepath)
+    user_no, delay_avg, delay_std, delay_max, delay_min = combine_iterations(filepath)
     if trendline:
         y_trendline = linear_reg(user_no,delay_avg)
         plt.plot(user_no, y_trendline,'-', color=colour_, alpha=0.2, label= label + " Trendline")
 
-    plt.plot(user_no[:limit], delay_avg[:limit], 'o--', color=colour_, label=label + " Average delay",ms=3) #, yerr = delay_std, fmt='o' )
-    plt.plot(user_no[:limit], delay_max[:limit], '--',  color=colour_, label=label + " Max delay",alpha=0.3) 
-    plt.plot(user_no[:limit], delay_min[:limit], '--',  color=colour_, label=label + " Min delay",alpha=0.3) 
+    plt.errorbar(x=user_no[:limit], y=delay_avg[:limit], yerr=delay_std[:limit], fmt='o--', color=colour_, label=label + " Average delay",ms=3, ecolor='black')
+    plt.plot(user_no[:limit], delay_max[:limit], '--',  color=colour_, label=label + " Max delay",alpha=0.3)
+    plt.plot(user_no[:limit], delay_min[:limit], '--',  color=colour_, label=label + " Min delay",alpha=0.3)
     plt.fill_between(user_no[:limit],
                      delay_max[:limit],
                      delay_min[:limit],
                      color =colour_,
                      alpha=0.2 )
     plt.locator_params(nbins=14)
-    plt.xlabel('Number of Nodes')
+    plt.xlabel('Number of Users')
     plt.ylabel('Average delay[sec]')
-    print(type(limit))
     plt.xlim(0,limit)
 
 
 def statistics(filepath):
+    # TODO update for multiple files
     results = parse_file(filepath)
     for results_row in results[5]:
         print(stats.describe(results_row))
         print("==========================================")
 
 
-ipfs_path = './evaluation_scripts/datasets/ipfs_results.json'
+ipfs_path = './json/'
 server_path = './evaluation_scripts/datasets/server_results_single.json'
 server_path_multi = './evaluation_scripts/datasets/server_results_multi.json'
 bittorent_path = './evaluation_scripts/datasets/bittorent_results.json'
@@ -89,15 +121,15 @@ if __name__ == '__main__':
     parser.add_argument('-d',action='store_true', default = False,
                         help="Show simulation with lattency added")
     parser.add_argument('-trend',action='store_true', default = False,
-                        help="Show performance trendline") 
+                        help="Show performance trendline")
     parser.add_argument('-IPFS', action='store_true', default = False,
                     help='Show IPFS performance')
     parser.add_argument('-user_limit', type=int, nargs='?', default = 120,
                     help='Limit number of users')
     parser.add_argument('-BitTorrent', action='store_true', default = False,
-                    help='Show BitTorrent performance') 
+                    help='Show BitTorrent performance')
     parser.add_argument('-client_server', action='store_true', default = False,
-                    help='Show Client Server performance')   
+                    help='Show Client Server performance')
     parser.add_argument('-statistics', action='store_true', default = False,
                     help='Print statistics')
     args = parser.parse_args()
@@ -119,8 +151,6 @@ if __name__ == '__main__':
 
     plt.legend()
     if args.o != None:
-        fig.savefig(save_dir + args.o +'.png',bbox_inches='tight') 
+        fig.savefig(save_dir + args.o +'.png',bbox_inches='tight')
     else:
         plt.show()
-
-

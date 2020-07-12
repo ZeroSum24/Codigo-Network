@@ -25,6 +25,6 @@ rm -rf go-ipfs/
 rm ipfs.tar.gz
 # Install Pip dependencies
 pip3 install numpy matplotlib web3 ipfshttpclient pyqt5
-pip3 install py-solc
+pip3 install py-solc-x
 # Install Ganache
 npm install -g ganache-cli
