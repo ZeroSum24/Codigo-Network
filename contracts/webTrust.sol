@@ -1,3 +1,4 @@
+pragma solidity ^0.4.23;
 contract Web_Of_Trust {
     
     // Avoid storing duplicates in the list
