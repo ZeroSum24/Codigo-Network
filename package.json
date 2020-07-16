@@ -1,0 +1,30 @@
+{
+  "name": "truffle-next",
+  "version": "1.0.0",
+  "license": "MIT",
+  "scripts": {
+    "lint": "standard",
+    "deploy": "truffle migrate --reset --network ropsten"
+  },
+  "standard": {
+    "parser": "babel-eslint",
+    "envs": [
+      "mocha",
+      "browser"
+    ],
+    "globals": [
+      "artifacts",
+      "contract",
+      "assert"
+    ]
+  },
+  "devDependencies": {
+    "babel-eslint": "^8.0.2",
+    "standard": "^10.0.3"
+  },
+  "dependencies": {
+    "@truffle/hdwallet-provider": "^1.0.35",
+    "dotenv": "^8.2.0",
+    "openzeppelin-solidity": "^2.5.0"
+  }
+}
